@@ -102,8 +102,13 @@ export class MultiplayerManager {
     this.lastJoin = null;
     this.state.role = 'host';
     this.state.localName = name;
-    this.state.localPen = pen;
-    this.state.series = series;
+    this.state.localPen = this.safePen(pen);
+    this.state.hostPen = this.state.localPen;
+    this.state.hostPenName = assetStore.pens[this.state.localPen]?.n || 'Pen';
+    this.state.series = [1, 3, 5].includes(series) ? series : 1;
+    this.state.clock = 0;
+    this.state.clutter = 0;
+    this.state.started = false;
     this.notify();
 
     const roomCode = generateRoomCode();
@@ -168,8 +173,13 @@ export class MultiplayerManager {
     this.lastJoin = { roomCode: cleanRoom, name, pen, series };
     this.state.role = 'guest';
     this.state.localName = name;
-    this.state.localPen = pen;
-    this.state.series = series;
+    this.state.localPen = this.safePen(pen);
+    this.state.guestPen = this.state.localPen;
+    this.state.guestPenName = assetStore.pens[this.state.localPen]?.n || 'Pen';
+    this.state.series = [1, 3, 5].includes(series) ? series : 1;
+    this.state.clock = 0;
+    this.state.clutter = 0;
+    this.state.started = false;
     this.state.room = cleanRoom;
     this.state.invite = getInviteUrl(cleanRoom);
     this.notify();
@@ -220,6 +230,8 @@ export class MultiplayerManager {
       } else {
         this.state.remoteName = String(conn.metadata?.name || 'Opponent').slice(0, 14);
         this.state.remotePen = this.safePen(conn.metadata?.pen ?? 1);
+        this.state.guestPen = this.state.remotePen;
+        this.state.guestPenName = assetStore.pens[this.state.guestPen]?.n || 'Pen';
         this.send(this.lobbyPacket());
       }
       this.notify();
@@ -259,6 +271,8 @@ export class MultiplayerManager {
       if (message.type === 'hello') {
         this.state.remoteName = String(message.name || 'Opponent').trim().slice(0, 14) || 'Opponent';
         this.state.remotePen = this.safePen(message.pen ?? 1);
+        this.state.guestPen = this.state.remotePen;
+        this.state.guestPenName = assetStore.pens[this.state.guestPen]?.n || 'Pen';
         this.state.connected = true;
         // Re-send the lobby after both player identities are known.
         this.send(this.lobbyPacket());
@@ -349,6 +363,7 @@ export class MultiplayerManager {
     };
 
     this.state.started = true;
+    this.state.lastSeq = 0;
     this.send(this.lobbyPacket(true));
     this.notify();
 
