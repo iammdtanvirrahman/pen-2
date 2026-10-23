@@ -60,7 +60,7 @@ export class ThreeManager {
     renderer.toneMappingExposure = 1.15;
     renderer.setPixelRatio(this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = !this.isSoftwareGl;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.appendChild(renderer.domElement);
     renderer.domElement.style.width = '100%';
