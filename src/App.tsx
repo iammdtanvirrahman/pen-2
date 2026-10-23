@@ -278,7 +278,7 @@ export const App: React.FC = () => {
 
     multiplayerManager.onOpponentDisconnected = (msg) => {
       showToast(msg);
-      setActiveScreen('menu');
+      setActiveScreen('online');
     };
   }, [showToast, settings, stats]);
 
