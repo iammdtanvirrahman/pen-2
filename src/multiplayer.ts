@@ -256,6 +256,7 @@ export class MultiplayerManager {
         this.state.remoteName = String(message.name || 'Opponent').trim().slice(0, 14) || 'Opponent';
         this.state.remotePen = this.safePen(message.pen ?? 1);
         this.state.connected = true;
+        // Re-send the lobby after both player identities are known.
         this.send(this.lobbyPacket());
         this.notify();
         return;
