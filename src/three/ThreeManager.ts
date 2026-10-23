@@ -134,6 +134,11 @@ export class ThreeManager {
       this.isSoftwareGl
     );
     this.deskGroup = desk;
+    desk.position.set(
+      assetStore.benchBounds.x + assetStore.benchBounds.w / 2 - CX,
+      0,
+      assetStore.benchBounds.y + assetStore.benchBounds.h / 2 - CY
+    );
     scene.add(desk);
 
     // 8. Ink Layer Mesh on top of table
@@ -215,6 +220,13 @@ export class ThreeManager {
       woodCanvas,
       this.renderer,
       this.isSoftwareGl
+    );
+    // Keep the 3D tabletop centered on the same world coordinates used by
+    // Matter.js, including when a portrait/landscape desk skin is letterboxed.
+    this.deskGroup.position.set(
+      bounds.x + bounds.w / 2 - CX,
+      0,
+      bounds.y + bounds.h / 2 - CY
     );
     this.scene.add(this.deskGroup);
 
