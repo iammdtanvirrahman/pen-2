@@ -15,11 +15,26 @@ export class Desk3DBuilder {
     const depth = bounds.h;
     const thickness = 22;
 
-    // 1. Procedural Desk Wood Texture from Canvas
-    const woodTexture = new THREE.CanvasTexture(woodCanvas);
+    // 1. Crop the procedural canvas to the actual tabletop.
+    // The source canvas also contains the dark background; using it uncropped
+    // would project that background onto the desk surface as a visible inset.
+    const surfaceCanvas = document.createElement('canvas');
+    surfaceCanvas.width = Math.max(1, Math.round(width));
+    surfaceCanvas.height = Math.max(1, Math.round(depth));
+    const surfaceContext = surfaceCanvas.getContext('2d');
+    if (surfaceContext) {
+      surfaceContext.drawImage(
+        woodCanvas,
+        bounds.x, bounds.y, bounds.w, bounds.h,
+        0, 0, surfaceCanvas.width, surfaceCanvas.height
+      );
+    }
+    const woodTexture = new THREE.CanvasTexture(surfaceCanvas);
     woodTexture.colorSpace = THREE.SRGBColorSpace;
+    woodTexture.wrapS = THREE.ClampToEdgeWrapping;
+    woodTexture.wrapT = THREE.ClampToEdgeWrapping;
     if (renderer && renderer.capabilities) {
-      woodTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      woodTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     }
     woodTexture.needsUpdate = true;
 
@@ -56,6 +71,38 @@ export class Desk3DBuilder {
     topMesh.receiveShadow = !isSoftwareGl;
     topMesh.castShadow = !isSoftwareGl;
     group.add(topMesh);
+
+    // 2b. Rounded-looking edge band: a thin warm timber lip and darker
+    // underside reveal make the desktop read as a solid school desk.
+    const edgeMat = new THREE.MeshStandardMaterial({
+      color: 0x8b572d,
+      roughness: 0.58,
+      metalness: 0.02,
+    });
+    const edgeDepth = 4;
+    const frontEdge = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 10, edgeDepth, 5),
+      edgeMat
+    );
+    frontEdge.position.set(0, -2, depth / 2 - 2.5);
+    frontEdge.castShadow = !isSoftwareGl;
+    group.add(frontEdge);
+
+    const backEdge = frontEdge.clone();
+    backEdge.position.z = -depth / 2 + 2.5;
+    group.add(backEdge);
+
+    const sideEdge = new THREE.Mesh(
+      new THREE.BoxGeometry(5, edgeDepth, depth - 10),
+      edgeMat
+    );
+    sideEdge.position.set(width / 2 - 2.5, -2, 0);
+    sideEdge.castShadow = !isSoftwareGl;
+    group.add(sideEdge);
+
+    const leftEdge = sideEdge.clone();
+    leftEdge.position.x = -width / 2 + 2.5;
+    group.add(leftEdge);
 
     // 3. Wooden Rim Apron Underneath
     const apronHeight = 35;
