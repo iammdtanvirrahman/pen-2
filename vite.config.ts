@@ -40,14 +40,14 @@ function singleHtmlBundle(): Plugin {
 
       html = html.replace(/<script\b([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi, (_match, _before, src) => {
         const fileName = decodeURIComponent(String(src).split('/').pop() || '');
-        const chunk = Object.values(bundle).find((item) => item.type === 'chunk' && item.fileName === fileName);
+        const chunk = Object.values(bundle).find((item) => item.type === 'chunk' && item.fileName.split('/').pop() === fileName);
         if (!chunk || chunk.type !== 'chunk') this.error('Could not inline JavaScript chunk: ' + src);
         return '<script type="module">\n' + chunk.code + '\n</script>';
       });
 
       html = html.replace(/<link\b([^>]*?)href=["']([^"']+\.css(?:\?[^"']*)?)["']([^>]*)>/gi, (_match, _before, href) => {
         const fileName = decodeURIComponent(String(href).split('/').pop()?.split('?')[0] || '');
-        const css = Object.values(bundle).find((item) => item.type === 'asset' && item.fileName === fileName);
+        const css = Object.values(bundle).find((item) => item.type === 'asset' && item.fileName.split('/').pop() === fileName);
         if (!css || css.type !== 'asset') this.error('Could not inline CSS asset: ' + href);
         return '<style>\n' + String(css.source) + '\n</style>';
       });
