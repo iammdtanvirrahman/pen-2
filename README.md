@@ -30,3 +30,22 @@ Build for production:
 ```bash
 npm run build
 ```
+
+
+## Version 5.0
+
+The `5.0` branch adds PWA metadata and an SVG icon, service-worker app-shell caching, keyboard focus polish and a more defensive online-room manager. Multiplayer has connection timeouts, a PeerJS signalling reconnect attempt, bounds checks for incoming guest flicks and host snapshots, and stale packet rejection. Guests can retry the previous room while its host is still running.
+
+### Build and smoke tests
+
+```sh
+npm ci
+npm run build
+npm test
+```
+
+The smoke suite checks PWA wiring, service-worker syntax and static multiplayer guards; it does not replace testing with two Android devices across different networks.
+
+### Known online limitations
+
+Online play still uses PeerJS/WebRTC. A managed TURN relay, persistent room service, account system, matchmaking and durable match restoration are not included. Reconnection can rejoin a live room but does not restore the previous physics session. Custom local uploads are not automatically transferred between peers.
