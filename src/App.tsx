@@ -194,6 +194,18 @@ export const App: React.FC = () => {
       }
 
       if (eng.match) {
+        // Apply the host's authoritative player identity and pen choices on every snapshot.
+        for (const pd of s.game.pl) {
+          const player = eng.match.pl[pd.i];
+          if (player) {
+            player.name = String(pd.name || player.name).slice(0, 14);
+            const cfgPlayer = s.cfg.pl[pd.i];
+            if (cfgPlayer) {
+              player.pen = Number.isInteger(cfgPlayer.pen) ? cfgPlayer.pen : player.pen;
+              player.ai = 0;
+            }
+          }
+        }
         eng.match.t = s.game.t;
         eng.match.st = s.game.st;
         eng.match.simT = s.game.simT;
