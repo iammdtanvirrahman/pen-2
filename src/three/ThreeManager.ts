@@ -76,11 +76,12 @@ export class ThreeManager {
     const height = container.clientHeight || H;
     const aspect = width / height;
 
-    const camera = new THREE.PerspectiveCamera(42, aspect, 10, 3000);
+    const camera = new THREE.PerspectiveCamera(46, aspect, 10, 3200);
     this.camera = camera;
-    // Classic top-down overhead view angled at ~75° for ideal slingshot aiming
-    camera.position.set(0, 880, 240);
-    camera.lookAt(0, 0, 0);
+    // Angled classroom-desk view: enough perspective to show the tabletop
+    // thickness and legs, while keeping the whole play surface readable.
+    camera.position.set(0, 760, 520);
+    camera.lookAt(0, -35, 0);
 
     // 4. OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -90,7 +91,7 @@ export class ThreeManager {
     controls.maxPolarAngle = Math.PI / 2.05; // don't go below desk level
     controls.minDistance = 300;
     controls.maxDistance = 1400;
-    controls.target.set(0, 0, 0);
+    controls.target.set(0, -35, 0);
 
     // 5. Studio Environment Map (PMREMGenerator + RoomEnvironment)
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -175,8 +176,8 @@ export class ThreeManager {
 
   resetCamera() {
     if (!this.camera || !this.controls) return;
-    this.camera.position.set(0, 880, 240);
-    this.controls.target.set(0, 0, 0);
+    this.camera.position.set(0, 760, 520);
+    this.controls.target.set(0, -35, 0);
     this.controls.update();
   }
 
