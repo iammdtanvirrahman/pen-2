@@ -27,20 +27,20 @@ export class AssetStore {
     // Add default bundled bench from assets/bench/
     this.benchSkins.push({
       n: 'Worn Wooden Desk With Doodles',
-      src: '/assets/bench/Worn Wooden Desk with Doodles.png',
+      src: `${import.meta.env.BASE_URL}assets/bench/Worn Wooden Desk with Doodles.png`,
     });
 
     // Add bundled pens from assets/pens/
     this.addPen({
       n: 'Black Grip Pen',
-      src: '/assets/pens/Transparent Barrel Black Grip Pen.png',
+      src: `${import.meta.env.BASE_URL}assets/pens/Transparent Barrel Black Grip Pen.png`,
       len: 84,
       band: -10,
       origin: 'repo',
     });
     this.addPen({
       n: 'Blue Retractable Pen',
-      src: '/assets/pens/Transparent Blue Retractable Pen.png',
+      src: `${import.meta.env.BASE_URL}assets/pens/Transparent Blue Retractable Pen.png`,
       len: 84,
       band: -10,
       origin: 'repo',
