@@ -317,7 +317,6 @@ export const App: React.FC = () => {
 
   // Mobile orientation helper
   const requestGameLandscape = () => {
-    if (!/Android|Mobile/i.test(navigator.userAgent)) return;
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
@@ -325,7 +324,7 @@ export const App: React.FC = () => {
     } catch (e) {}
     try {
       const scr = screen as any;
-      if (scr.orientation && scr.orientation.lock) {
+      if (/Android|Mobile/i.test(navigator.userAgent) && scr.orientation && scr.orientation.lock) {
         scr.orientation.lock('landscape').catch(() => {});
       }
     } catch (e) {}
@@ -680,8 +679,9 @@ export const App: React.FC = () => {
         }}
         onResetCamera={() => {
           threeManager.resetCamera();
-          showToast('Camera reset to overhead');
+          showToast('Camera reset');
         }}
+        onLandscape={requestGameLandscape}
         onPause={handlePause}
         onRestart={handleRestart}
         onMenu={handleMainMenu}
