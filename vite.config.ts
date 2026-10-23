@@ -32,6 +32,12 @@ function singleHtmlBundle(): Plugin {
       if (!htmlAsset || htmlAsset.type !== 'asset') this.error('Single HTML build expected index.html output.');
       let html = String(htmlAsset.source);
 
+      for (const item of Object.values(bundle)) {
+        if (item.type === 'chunk') {
+          for (const [token, dataUrl] of Object.entries(dataUrls)) item.code = item.code.split(token).join(dataUrl);
+        }
+      }
+
       html = html.replace(/<script\b([^>]*?)src=["']([^"']+)["']([^>]*)><\/script>/gi, (_match, _before, src) => {
         const fileName = decodeURIComponent(String(src).split('/').pop() || '');
         const chunk = Object.values(bundle).find((item) => item.type === 'chunk' && item.fileName === fileName);
@@ -51,12 +57,6 @@ function singleHtmlBundle(): Plugin {
       html = html.replace(/<link\b[^>]*rel=["']icon["'][^>]*>/gi, '<link rel="icon" type="image/svg+xml" href="' + iconData + '">');
       html = html.replace(/<link\b[^>]*rel=["']manifest["'][^>]*>/gi, '');
       html = html.replace(/<link\b[^>]*(?:fonts\.googleapis\.com|fonts\.gstatic\.com)[^>]*>/gi, '');
-
-      for (const item of Object.values(bundle)) {
-        if (item.type === 'chunk') {
-          for (const [token, dataUrl] of Object.entries(dataUrls)) item.code = item.code.split(token).join(dataUrl);
-        }
-      }
 
       htmlAsset.source = html;
       for (const fileName of Object.keys(bundle)) if (fileName !== 'index.html') delete bundle[fileName];
