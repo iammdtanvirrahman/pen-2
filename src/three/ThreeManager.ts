@@ -151,7 +151,11 @@ export class ThreeManager {
     });
     const inkMesh = new THREE.Mesh(inkGeo, inkMat);
     inkMesh.rotation.x = -Math.PI / 2;
-    inkMesh.position.y = 0.4;
+    inkMesh.position.set(
+      assetStore.benchBounds.x + assetStore.benchBounds.w / 2 - CX,
+      0.4,
+      assetStore.benchBounds.y + assetStore.benchBounds.h / 2 - CY
+    );
     this.inkMesh = inkMesh;
     scene.add(inkMesh);
 
@@ -179,6 +183,46 @@ export class ThreeManager {
     this.camera.position.set(0, 760, 520);
     this.controls.target.set(0, -35, 0);
     this.controls.update();
+  }
+
+  private disposeObjectResources(root: THREE.Object3D) {
+    root.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.geometry.dispose();
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => {
+        const mat = material as THREE.MeshStandardMaterial;
+        if (mat.map) mat.map.dispose();
+        if (mat.alphaMap) mat.alphaMap.dispose();
+        if (mat.normalMap) mat.normalMap.dispose();
+        if (mat.roughnessMap) mat.roughnessMap.dispose();
+        if (mat.metalnessMap) mat.metalnessMap.dispose();
+        mat.dispose();
+      });
+    });
+  }
+
+  /** Rebuild the tabletop and ink plane when a different desk skin is selected. */
+  setDeskEnvironment(woodCanvas: HTMLCanvasElement, bounds = assetStore.benchBounds) {
+    if (!this.scene || !this.renderer || !this.inkMesh) return;
+
+    if (this.deskGroup) {
+      this.scene.remove(this.deskGroup);
+      this.disposeObjectResources(this.deskGroup);
+    }
+    this.deskGroup = Desk3DBuilder.createDesk(
+      bounds,
+      woodCanvas,
+      this.renderer,
+      this.isSoftwareGl
+    );
+    this.scene.add(this.deskGroup);
+
+    this.inkMesh.geometry.dispose();
+    this.inkMesh.geometry = new THREE.PlaneGeometry(bounds.w, bounds.h);
+    this.inkMesh.position.set(bounds.x + bounds.w / 2 - CX, 0.4, bounds.y + bounds.h / 2 - CY);
+    this.inkMesh.geometry.computeBoundingSphere();
+    this.inkTexture && (this.inkTexture.needsUpdate = true);
   }
 
   private disposeGroup(group: THREE.Group) {
