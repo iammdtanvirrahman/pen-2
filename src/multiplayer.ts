@@ -21,6 +21,8 @@ export interface NetState {
   qrDataUrl: string | null;
   hostPen: number;
   guestPen: number;
+  hostPenName: string;
+  guestPenName: string;
   clock: number;
   clutter: number;
 }
@@ -61,6 +63,8 @@ export class MultiplayerManager {
     qrDataUrl: null,
     hostPen: 0,
     guestPen: 1,
+    hostPenName: 'Pen',
+    guestPenName: 'Pen',
     clock: 0,
     clutter: 0,
   };
@@ -294,6 +298,8 @@ export class MultiplayerManager {
       this.state.remoteName = String(message.host || 'Host').slice(0, 14);
       this.state.hostPen = this.safePen(message.hostPen ?? 0);
       this.state.guestPen = this.safePen(message.guestPen ?? this.state.localPen);
+      this.state.hostPenName = String(message.hostPenName || assetStore.pens[this.state.hostPen]?.n || 'Pen');
+      this.state.guestPenName = String(message.guestPenName || assetStore.pens[this.state.guestPen]?.n || 'Pen');
       if (message.started && !this.state.started) {
         this.state.started = true;
       }
@@ -469,6 +475,8 @@ export class MultiplayerManager {
       qrDataUrl: null,
       hostPen: 0,
       guestPen: 1,
+      hostPenName: 'Pen',
+      guestPenName: 'Pen',
     };
     this.closing = false;
   }
