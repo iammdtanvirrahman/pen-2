@@ -16,7 +16,7 @@ test('6.0 builds as a single self-contained HTML document',()=>{
   const viteConfig=readFileSync(path.join(root,'vite.config.ts'),'utf8');
   const pkg=JSON.parse(readFileSync(path.join(root,'package.json'),'utf8'));
   assert.equal(pkg.version,'6.0.0');
-  assert.match(viteConfig,/single-html-bundle/);
+  assert.match(viteConfig,/pen-game-single-html/);
   assert.match(viteConfig,/__PEN_GAME_BENCH__/);
   assert.match(viteConfig,/__PEN_GAME_BLACK_PEN__/);
   assert.match(viteConfig,/__PEN_GAME_BLUE_PEN__/);
