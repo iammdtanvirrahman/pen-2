@@ -484,6 +484,8 @@ export class MultiplayerManager {
       guest: this.state.remoteName,
       hostPen: this.state.localPen,
       guestPen: this.state.remotePen,
+      hostPenName: assetStore.pens[this.state.localPen]?.n || 'Pen',
+      guestPenName: assetStore.pens[this.state.remotePen]?.n || 'Pen',
       series: this.state.series,
       clock: this.state.clock,
       clutter: this.state.clutter,
