@@ -253,7 +253,7 @@ export class MultiplayerManager {
         this.onToast?.('Opponent left the room');
         this.notify();
       } else {
-        this.onOpponentDisconnected?.('Connection to the host was lost.');
+        this.resetGuestForReconnect('Connection to the host was lost.');
       }
     });
 
@@ -509,6 +509,39 @@ export class MultiplayerManager {
     };
     this.closing = false;
   }
+
+  private resetGuestForReconnect(message: string) {
+    const room = this.state.room;
+    const invite = this.state.invite;
+    const localName = this.state.localName;
+    const localPen = this.state.localPen;
+    const series = this.state.series;
+    const hostPen = this.state.hostPen;
+    const guestPen = this.state.guestPen;
+    const hostPenName = this.state.hostPenName;
+    const guestPenName = this.state.guestPenName;
+    const conn = this.state.conn;
+    const peer = this.state.peer;
+    this.clearConnectionTimer();
+    if (conn) {
+      try { conn.close(); } catch (e) {}
+    }
+    if (peer && !peer.destroyed) {
+      try { peer.destroy(); } catch (e) {}
+    }
+    this.state = {
+      role: null, peer: null, conn: null, connected: false,
+      room, invite, localName, localPen, remoteName: 'Host',
+      remotePen: hostPen, series, started: false, lastSeq: 0,
+      lastGameId: null, qrDataUrl: null,
+      hostPen, guestPen, hostPenName, guestPenName,
+      clock: this.state.clock, clutter: this.state.clutter,
+    };
+    this.onOpponentDisconnected?.(message);
+    this.notify();
+  }
+
+
   private safePen(value: unknown): number {
     const n = Number(value);
     return Number.isInteger(n) && n >= 0 && n < assetStore.pens.length ? n : 0;
@@ -538,11 +571,8 @@ export class MultiplayerManager {
   private failConnection(message: string) {
     this.clearConnectionTimer();
     this.onToast?.(message);
-    if (this.state.role === 'guest' && this.state.conn) {
-      try { this.state.conn.close(); } catch (e) {}
-      this.state.conn = null;
-      this.state.connected = false;
-      this.onOpponentDisconnected?.(message);
+    if (this.state.role === 'guest') {
+      this.resetGuestForReconnect(message);
     } else if (this.state.role === 'host') {
       this.state.connected = false;
       this.notify();
