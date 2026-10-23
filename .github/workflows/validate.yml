@@ -1,0 +1,21 @@
+name: Pen Game v5 validation
+on:
+  push:
+    branches: ["5.0"]
+  pull_request:
+    branches: ["5.0"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
