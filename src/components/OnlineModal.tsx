@@ -93,6 +93,24 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ netState, onBack, onTo
     multiplayerManager.leave();
   };
 
+  const handleReconnect = () => {
+    multiplayerManager.reconnect();
+  };
+
+  // A disconnected guest can retry while the host room is still running.
+  if (!netState.role && netState.room && netState.invite) {
+    return (
+      <div className="p" role="dialog" aria-modal="true">
+        <div className="logo"><b>Connection <span>lost</span></b></div>
+        <p className="mu">Reconnect works only while the host's room is still open. If the host left, ask them to create a new room.</p>
+        <div className="g">
+          <button type="button" className="pr" onClick={handleReconnect}>Reconnect to room</button>
+          <button type="button" onClick={onBack}>Back to main menu</button>
+        </div>
+      </div>
+    );
+  }
+
   // If in a room (role !== null)
   if (netState.role) {
     const isHost = netState.role === 'host';
