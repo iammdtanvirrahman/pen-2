@@ -60,7 +60,7 @@ export class ThreeManager {
     renderer.toneMappingExposure = 1.15;
     renderer.setPixelRatio(this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = !this.isSoftwareGl;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.appendChild(renderer.domElement);
     renderer.domElement.style.width = '100%';
@@ -181,6 +181,17 @@ export class ThreeManager {
     this.controls.update();
   }
 
+  private disposeGroup(group: THREE.Group) {
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((material) => material.dispose());
+      }
+    });
+    group.parent?.remove(group);
+  }
+
   syncWithMatch(
     match: MatchState | null,
     drag: { x: number; y: number; t: number } | null,
@@ -208,9 +219,16 @@ export class ThreeManager {
     for (const p of match.pl) {
       let mesh = this.penMeshes.get(p.i);
 
+      const selectedPen = Number.isInteger(p.pen) ? p.pen : 0;
+      if (mesh && mesh.userData.penIndex !== selectedPen) {
+        this.disposeGroup(mesh);
+        this.penMeshes.delete(p.i);
+        mesh = undefined;
+      }
       if (!mesh) {
-        const penDef = assetStore.pens[p.pen] || assetStore.pens[0];
+        const penDef = assetStore.pens[selectedPen] || assetStore.pens[0];
         mesh = Pen3DBuilder.createPenModel(penDef, p.i, this.isSoftwareGl);
+        mesh.userData.penIndex = selectedPen;
         this.scene.add(mesh);
         this.penMeshes.set(p.i, mesh);
       }
@@ -252,19 +270,30 @@ export class ThreeManager {
       }
     }
 
-    // 2. Synchronize Obstacles
-    if (match.obs) {
-      match.obs.forEach((o, idx) => {
-        let oMesh = this.obsMeshes.get(idx);
-        if (!oMesh) {
-          oMesh = Obstacles3DBuilder.createObstacleModel(o, this.isSoftwareGl);
-          this.scene!.add(oMesh);
-          this.obsMeshes.set(idx, oMesh);
-        }
-        oMesh.position.x = o.x - CX;
-        oMesh.position.z = o.y - CY;
-        oMesh.rotation.y = -o.a;
-      });
+    // 2. Synchronize Obstacles. Rebuild changed obstacle types/sizes and hide
+    // leftovers when a new round has fewer obstacles than the previous round.
+    const obstacles = match.obs || [];
+    obstacles.forEach((o, idx) => {
+      const signature = [o.k, o.w, o.h, o.r].join(':');
+      let oMesh = this.obsMeshes.get(idx);
+      if (oMesh && oMesh.userData.signature !== signature) {
+        this.disposeGroup(oMesh);
+        this.obsMeshes.delete(idx);
+        oMesh = undefined;
+      }
+      if (!oMesh) {
+        oMesh = Obstacles3DBuilder.createObstacleModel(o, this.isSoftwareGl);
+        oMesh.userData.signature = signature;
+        this.scene!.add(oMesh);
+        this.obsMeshes.set(idx, oMesh);
+      }
+      oMesh.visible = true;
+      oMesh.position.x = o.x - CX;
+      oMesh.position.z = o.y - CY;
+      oMesh.rotation.y = -o.a;
+    });
+    for (const [idx, oMesh] of this.obsMeshes) {
+      if (idx >= obstacles.length) oMesh.visible = false;
     }
 
     // 3. 3D Aim Guide & Slingshot Arrow
