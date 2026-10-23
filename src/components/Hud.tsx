@@ -9,6 +9,7 @@ interface HudProps {
   viewMode: '3d' | '2d';
   onToggleViewMode: () => void;
   onResetCamera: () => void;
+  onLandscape: () => void;
   onPause: () => void;
   onRestart: () => void;
   onMenu: () => void;
@@ -21,6 +22,7 @@ export const Hud: React.FC<HudProps> = ({
   viewMode,
   onToggleViewMode,
   onResetCamera,
+  onLandscape,
   onPause,
   onRestart,
   onMenu,
@@ -103,6 +105,16 @@ export const Hud: React.FC<HudProps> = ({
       <div id="pwr" title="Flick power">
         <div id="pwf" style={{ width: `${Math.round(power * 100)}%` }} />
       </div>
+
+      <button
+        type="button"
+        data-a="landscape"
+        aria-label="Enter fullscreen landscape mode"
+        title="Fullscreen / landscape mode"
+        onClick={onLandscape}
+      >
+        ⛶
+      </button>
 
       {viewMode === '3d' && (
         <button
