@@ -230,10 +230,14 @@ export class MultiplayerManager {
     });
 
     conn.on('close', () => {
+      this.clearConnectionTimer();
       if (this.closing || this.state.conn !== conn) return;
       if (this.state.role === 'host') {
         this.state.connected = false;
         this.state.remoteName = 'Opponent';
+        this.state.started = false;
+        this.state.lastSeq = 0;
+        this.state.lastGameId = null;
         this.onToast?.('Opponent left the room');
         this.notify();
       } else {
@@ -278,17 +282,22 @@ export class MultiplayerManager {
 
       if (message.type === 'action') {
         if (message.action === 'next' || message.action === 'rst') {
-          this.onRoundActionReceived?.(message.action);
+          if (this.state.started && this.state.connected) this.onRoundActionReceived?.(message.action);
         } else if (message.action === 'leave') {
           this.send({ type: 'closed', reason: 'Opponent left the room.' });
           this.state.connected = false;
+          this.state.started = false;
+          this.state.lastSeq = 0;
           this.notify();
         }
         return;
       }
 
       if (message.type === 'leave') {
+        this.send({ type: 'closed', reason: 'Opponent left the room.' });
         this.state.connected = false;
+        this.state.started = false;
+        this.state.lastSeq = 0;
         this.notify();
       }
       return;
@@ -301,8 +310,12 @@ export class MultiplayerManager {
       this.state.guestPen = this.safePen(message.guestPen ?? this.state.localPen);
       this.state.hostPenName = String(message.hostPenName || assetStore.pens[this.state.hostPen]?.n || 'Pen');
       this.state.guestPenName = String(message.guestPenName || assetStore.pens[this.state.guestPen]?.n || 'Pen');
+      if ([1, 3, 5].includes(Number(message.series))) this.state.series = Number(message.series);
+      if ([0, 15, 30].includes(Number(message.clock))) this.state.clock = Number(message.clock);
+      if ([0, 1, 2].includes(Number(message.clutter))) this.state.clutter = Number(message.clutter);
       if (message.started && !this.state.started) {
         this.state.started = true;
+        this.state.lastSeq = 0;
       }
       this.notify();
       return;
