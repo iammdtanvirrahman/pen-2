@@ -19,6 +19,8 @@ export interface NetState {
   lastSeq: number;
   lastGameId: number | null;
   qrDataUrl: string | null;
+  clock: number;
+  clutter: number;
 }
 
 export function generateRoomCode(): string {
@@ -55,9 +57,14 @@ export class MultiplayerManager {
     lastSeq: 0,
     lastGameId: null,
     qrDataUrl: null,
+    clock: 0,
+    clutter: 0,
   };
 
   syncInterval: number | null = null;
+  connectionTimer: number | null = null;
+  recoveryTimer: number | null = null;
+  lastJoin: { roomCode: string; name: string; pen: number; series: number } | null = null;
   closing = false;
 
   onStateChange?: (state: NetState) => void;
@@ -84,6 +91,7 @@ export class MultiplayerManager {
 
   async createRoom(name: string, pen: number, series: number) {
     this.cleanup();
+    this.lastJoin = null;
     this.state.role = 'host';
     this.state.localName = name;
     this.state.localPen = pen;
@@ -106,9 +114,14 @@ export class MultiplayerManager {
     try {
       const peer = new Peer(roomCode, { debug: 0 });
       this.state.peer = peer;
+      this.watchPeer(peer);
+      this.connectionTimer = window.setTimeout(() => {
+        if (this.state.role === 'host' && this.state.peer === peer && !peer.id) this.failConnection('Room creation timed out. Check your connection and try again.');
+      }, 18000);
 
       peer.on('open', (id) => {
         if (this.closing || this.state.role !== 'host') return;
+        this.clearConnectionTimer();
         this.state.room = id;
         this.state.invite = getInviteUrl(id);
         this.notify();
@@ -144,6 +157,7 @@ export class MultiplayerManager {
       return;
     }
     this.cleanup();
+    this.lastJoin = { roomCode: cleanRoom, name, pen, series };
     this.state.role = 'guest';
     this.state.localName = name;
     this.state.localPen = pen;
@@ -155,6 +169,10 @@ export class MultiplayerManager {
     try {
       const peer = new Peer({ debug: 0 });
       this.state.peer = peer;
+      this.watchPeer(peer);
+      this.connectionTimer = window.setTimeout(() => {
+        if (this.state.role === 'guest' && this.state.peer === peer && !this.state.connected) this.failConnection('Connection timed out. Check the network and try again.');
+      }, 20000);
 
       peer.on('open', () => {
         if (this.closing || this.state.role !== 'guest') return;
@@ -185,19 +203,16 @@ export class MultiplayerManager {
 
     conn.on('open', () => {
       if (this.closing || this.state.conn !== conn) return;
+      this.clearConnectionTimer();
       this.state.connected = true;
+      this.state.lastSeq = 0;
 
       if (this.state.role === 'guest') {
         this.send({ type: 'hello', name: this.state.localName, pen: this.state.localPen });
       } else {
         this.state.remoteName = String(conn.metadata?.name || 'Opponent').slice(0, 14);
-        this.state.remotePen = Number(conn.metadata?.pen ?? 1);
-        this.send({
-          type: 'lobby',
-          host: this.state.localName,
-          guest: this.state.remoteName,
-          started: this.state.started,
-        });
+        this.state.remotePen = this.safePen(conn.metadata?.pen ?? 1);
+        this.send(this.lobbyPacket());
       }
       this.notify();
     });
@@ -226,29 +241,28 @@ export class MultiplayerManager {
   }
 
   handleMessage(message: any) {
-    if (!message || typeof message !== 'object') return;
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return;
 
     if (this.state.role === 'host') {
       if (message.type === 'hello') {
         this.state.remoteName = String(message.name || 'Opponent').trim().slice(0, 14) || 'Opponent';
-        this.state.remotePen = Number(message.pen ?? 1);
+        this.state.remotePen = this.safePen(message.pen ?? 1);
         this.state.connected = true;
-        this.send({
-          type: 'lobby',
-          host: this.state.localName,
-          guest: this.state.remoteName,
-          started: this.state.started,
-        });
+        this.send(this.lobbyPacket());
         this.notify();
         return;
       }
 
       if (message.type === 'flick') {
-        // Guest submitted a flick
         const B = assetStore.benchBounds;
-        const ang = Math.atan2(Number(message.dirY) * B.h, Number(message.dirX) * B.w);
-        const pw = Math.min(1, Math.max(0, Number(message.pw)));
-        const t = Number(message.t) || 0;
+        const dx = Number(message.dirX), dy = Number(message.dirY);
+        const pw = Number(message.pw), t = Number(message.t);
+        if (!this.state.started || !this.state.connected ||
+            !Number.isFinite(dx) || !Number.isFinite(dy) ||
+            Math.abs(dx) > 1.01 || Math.abs(dy) > 1.01 ||
+            !Number.isFinite(pw) || pw < 0 || pw > 1 ||
+            !Number.isFinite(t) || Math.abs(t) > 120) return;
+        const ang = Math.atan2(dy * B.h, dx * B.w);
         this.onGuestFlickReceived?.(ang, pw, t);
         return;
       }
@@ -282,7 +296,11 @@ export class MultiplayerManager {
     }
 
     if (message.type === 'state') {
-      this.onIncomingState?.(message as NetStatePacket);
+      if (!this.isValidSnapshot(message)) return;
+      const packet = message as NetStatePacket;
+      if (packet.seq <= this.state.lastSeq) return;
+      this.state.lastSeq = packet.seq;
+      this.onIncomingState?.(packet);
       return;
     }
 
@@ -296,8 +314,8 @@ export class MultiplayerManager {
 
     const cfg: MatchConfig = {
       series: this.state.series,
-      clock: 0,
-      clutter: 0,
+      clock: this.state.clock,
+      clutter: this.state.clutter,
       pl: [
         { name: this.state.localName, ai: 0, pen: this.state.localPen },
         { name: this.state.remoteName || 'Opponent', ai: 0, pen: this.state.remotePen },
@@ -305,12 +323,7 @@ export class MultiplayerManager {
     };
 
     this.state.started = true;
-    this.send({
-      type: 'lobby',
-      host: this.state.localName,
-      guest: this.state.remoteName,
-      started: true,
-    });
+    this.send(this.lobbyPacket(true));
     this.notify();
 
     this.onStartMatchByHost?.(cfg);
@@ -415,6 +428,9 @@ export class MultiplayerManager {
       window.clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
+    this.clearConnectionTimer();
+    if (this.recoveryTimer !== null) window.clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = null;
     if (this.state.conn) {
       try {
         this.state.conn.close();
@@ -439,6 +455,8 @@ export class MultiplayerManager {
       localPen: 0,
       remotePen: 1,
       series: 1,
+      clock: 0,
+      clutter: 0,
       started: false,
       lastSeq: 0,
       lastGameId: null,
@@ -446,6 +464,84 @@ export class MultiplayerManager {
     };
     this.closing = false;
   }
+  private safePen(value: unknown): number {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 0 && n < assetStore.pens.length ? n : 0;
+  }
+
+  private lobbyPacket(started = this.state.started) {
+    return {
+      type: 'lobby',
+      host: this.state.localName,
+      guest: this.state.remoteName,
+      hostPen: this.state.localPen,
+      guestPen: this.state.remotePen,
+      series: this.state.series,
+      clock: this.state.clock,
+      clutter: this.state.clutter,
+      started,
+    };
+  }
+
+  private clearConnectionTimer() {
+    if (this.connectionTimer !== null) window.clearTimeout(this.connectionTimer);
+    this.connectionTimer = null;
+  }
+
+  private failConnection(message: string) {
+    this.clearConnectionTimer();
+    this.onToast?.(message);
+    if (this.state.role === 'guest' && this.state.conn) {
+      try { this.state.conn.close(); } catch (e) {}
+      this.state.conn = null;
+      this.state.connected = false;
+      this.onOpponentDisconnected?.(message);
+    } else if (this.state.role === 'host') {
+      this.state.connected = false;
+      this.notify();
+    }
+  }
+
+  private watchPeer(peer: Peer) {
+    peer.on('disconnected', () => {
+      if (this.closing || this.state.peer !== peer || peer.destroyed) return;
+      this.onToast?.('Room service disconnected. Trying to reconnect…');
+      if (this.recoveryTimer !== null) window.clearTimeout(this.recoveryTimer);
+      this.recoveryTimer = window.setTimeout(() => {
+        this.recoveryTimer = null;
+        if (this.closing || this.state.peer !== peer || peer.destroyed || !peer.disconnected) return;
+        try { peer.reconnect(); } catch (e) {
+          this.onToast?.('Room service recovery failed. Rejoin the room if needed.');
+        }
+      }, 1200);
+    });
+  }
+
+  reconnect() {
+    const previous = this.lastJoin;
+    if (!previous) {
+      this.onToast?.('Create or join a room first.');
+      return;
+    }
+    this.joinRoom(previous.roomCode, previous.name, previous.pen, previous.series);
+  }
+
+  private isValidSnapshot(message: any): boolean {
+    if (!Number.isSafeInteger(Number(message.seq)) || Number(message.seq) < 1) return false;
+    const g = message.game, m = message.match;
+    if (!g || !m || !Array.isArray(g.pl) || g.pl.length !== 2 ||
+        !Array.isArray(g.obs) || g.obs.length > 10 ||
+        !Array.isArray(m.scores) || m.scores.length !== 2 ||
+        !['aim', 'sim', 'over'].includes(g.st) ||
+        !Number.isInteger(Number(g.t)) || g.t < 0 || g.t > 1) return false;
+    return g.pl.every((p: any) =>
+      p && Number.isInteger(Number(p.i)) && p.i >= 0 && p.i <= 1 &&
+      ['x', 'y', 'vx', 'vy', 'angle', 'av'].every((key) => Number.isFinite(Number(p[key]))) &&
+      Math.abs(Number(p.x)) <= 3 && Math.abs(Number(p.y)) <= 3 &&
+      Math.abs(Number(p.vx)) <= 5 && Math.abs(Number(p.vy)) <= 5
+    );
+  }
+
 }
 
 export const multiplayerManager = new MultiplayerManager();
