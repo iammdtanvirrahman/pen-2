@@ -113,7 +113,7 @@ export const OnlineModal: React.FC<OnlineModalProps> = ({ netState, onBack, onTo
           </div>
           <div>
             <b>{isHost ? (isConnected ? netState.remoteName : 'Waiting…') : netState.localName}</b>
-            <span>{isHost ? (isConnected ? `Opponent · ${assetStore.pens[netState.remotePen]?.n || 'Pen'}` : 'Waiting for friend') : `You · ${assetStore.pens[netState.localPen]?.n || 'Pen'}`}</span>
+            <span>{isHost ? (isConnected ? `Opponent · ${netState.guestPenName || assetStore.pens[netState.guestPen]?.n || 'Pen'}` : 'Waiting for friend') : `You · ${netState.guestPenName || assetStore.pens[netState.guestPen]?.n || assetStore.pens[netState.localPen]?.n || 'Pen'}`}</span>
           </div>
           <div>
             <b>{isConnected ? '● Online' : '…'}</b>
