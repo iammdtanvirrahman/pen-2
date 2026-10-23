@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {Script} from 'node:vm';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const html=readFileSync(path.join(root,'index.html'),'utf8');
+const manifest=JSON.parse(readFileSync(path.join(root,'manifest.webmanifest'),'utf8'));
+const worker=readFileSync(path.join(root,'sw.js'),'utf8');
+const multiplayer=readFileSync(path.join(root,'src/multiplayer.ts'),'utf8');
+test('PWA manifest wiring',()=>{assert.equal(manifest.start_url,'./');assert.equal(manifest.display,'standalone');assert.ok(manifest.icons.some(icon=>icon.src==='./icon.svg'));assert.match(html,/rel="manifest" href="\.\/manifest\.webmanifest"/)});
+test('service worker parses',()=>{assert.doesNotThrow(()=>new Script(worker,{filename:'sw.js'}))});
+test('multiplayer has bounded waits and packet validation',()=>{assert.match(multiplayer,/20000/);assert.match(multiplayer,/peer\.reconnect\(\)/);assert.match(multiplayer,/isValidSnapshot/);assert.match(multiplayer,/Number\.isFinite\(dx\)/)});
+test('offline fallback explains online dependency',()=>{assert.match(worker,/Open Pen Game once online/);assert.match(worker,/peerjs/i)});
