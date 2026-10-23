@@ -29,6 +29,29 @@ import { Toast } from './components/Toast';
 
 type ModalScreen = 'menu' | 'setup' | 'online' | 'rules' | 'settings' | 'pause' | 'win' | null;
 
+function createDeskTextureCanvas(): HTMLCanvasElement {
+  const bounds = assetStore.benchBounds;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return createProceduralWoodBench(bounds);
+
+  if (assetStore.benchImg) {
+    // Match the exact centered contain-fit used by the 2D renderer. Crop the
+    // actual image pixels for the 3D tabletop instead of cropping unrelated
+    // procedural pixels with bounds derived from the image's aspect ratio.
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(
+      assetStore.benchImg,
+      bounds.x, bounds.y, bounds.w, bounds.h
+    );
+  } else {
+    return createProceduralWoodBench(bounds);
+  }
+  return canvas;
+}
+
 export const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -70,7 +93,7 @@ export const App: React.FC = () => {
 
   // Generate procedural wood bench on load and init 3D Three.js
   useEffect(() => {
-    const wood = createProceduralWoodBench(DEFAULT_B);
+    const wood = createDeskTextureCanvas();
     woodBenchRef.current = wood;
     assetStore.loadRemoteDirectoryAssets().catch(() => {});
 
@@ -581,7 +604,9 @@ export const App: React.FC = () => {
     requestGameLandscape();
     if (benchSrc !== null && benchSrc !== assetStore.selectedBenchSrc) {
       assetStore.setBench(benchSrc).then(() => {
-        woodBenchRef.current = createProceduralWoodBench(assetStore.benchBounds);
+        const wood = createDeskTextureCanvas();
+        woodBenchRef.current = wood;
+        threeManager.setDeskEnvironment(wood, assetStore.benchBounds);
       });
     }
     engineRef.current?.startSeries(cfg, settings, stats);
